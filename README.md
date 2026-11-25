@@ -6,9 +6,9 @@
 | ПІБ            | Кладніцький Станіслав                     |
 | Група          | ЗПІ-21                                    |
 | Ідентифікатор  | se-201-01                                 |
-| Дата виконання | <!-- ВСТАВИТИ дату -->                    |
+| Дата виконання | 25.11.2026                   |
 | Середовище     | GitHub Codespaces                         |
-| Версія OpenSSL | <!-- ВСТАВИТИ: openssl version -->        |
+| Версія OpenSSL | OpenSSL 3.0.13 30 Jan 2024 (Library: OpenSSL 3.0.13 30 Jan 2024)        |
 
 ## Параметри варіанта
 
@@ -17,115 +17,144 @@
 | Варіант               | №1                                                            |
 | Віддалений сервер     | `www.se-201-01.lab`                                           |
 | Імена для сертифіката | `www.se-201-01.lab`, `<!-- ВСТАВИТИ DNS-alias з картки -->`   |
-| Ваш сервер (IP)       | <!-- ВСТАВИТИ -->                                             |
+| Ваш сервер (IP)       | 10.53.1.1                                             |
 
 ## Завдання 1. HTTP і HTTPS у дампі трафіку
-
-Крок 1.1 (HTTP):
-
-```bash
-cd /lab/work
-REMOTE="www.se-201-01.lab"
-timeout 8 tcpdump -ni eth0 -A -s0 -l \
-'host 10.53.0.80 and tcp port 80' > t1-http.txt &
-sleep 1
-curl -s http://$REMOTE/
-wait
-grep -a -E 'GET /|Host:|server: web' t1-http.txt
-```
 
 Вивід кроку 1.1:
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
-```
-
-Крок 1.2 (HTTPS):
-
-```bash
-timeout 8 tcpdump -ni eth0 -A -s0 -l \
-'host 10.53.0.80 and tcp port 443' > t1-https.txt &
-sleep 1
-curl -s --cacert $STAND_CA https://$REMOTE/
-wait
-grep -a -c -E 'GET /|server: web' t1-https.txt
+Host: origin.se-201-01.lab
+SNI:
+protocol: HTTP/1.1
+client: 10.53.1.1
+10 packets captured
+10 packets received by filter
+0 packets dropped by kernel
+[1]+  Exit 124                timeout 8 tcpdump -ni eth0 -A -s0 -l 'host 10.53.0.80 and tcp port 80' > t1-http.txt
+20:54:46.317479 IP 10.53.1.1.60258 > 10.53.0.80.80: Flags [P.], seq 1:84, ack 1, win 502, options [nop,nop,TS val 1366219007 ecr 784308209], length 83: HTTP: GET / HTTP/1.1
+Qn......GET / HTTP/1.1
+Host: origin.se-201-01.lab
+server: web
+Host: origin.se-201-01.lab
 ```
 
 Вивід кроку 1.2:
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
+Host: origin.se-201-01.lab
+SNI: origin.se-201-01.lab
+protocol: HTTP/2.0 TLSv1.3
+client: 10.53.1.1
+22 packets captured
+22 packets received by filter
+0 packets dropped by kernel
+[1]+  Exit 124                timeout 8 tcpdump -ni eth0 -A -s0 -l 'host 10.53.0.80 and tcp port 443' > t1-https.txt
+0
 ```
 
 | Що шукали в дампі                             | HTTP                | HTTPS               |
 | --------------------------------------------- | ------------------- | ------------------- |
-| рядок запиту `GET /`                          | <!-- заповнити -->  | <!-- заповнити -->  |
-| заголовок `Host`                              | <!-- заповнити -->  | <!-- заповнити -->  |
-| тіло відповіді (`server: web`)                | <!-- заповнити -->  | <!-- заповнити -->  |
-| ім'я віддаленого сервера (кількість входжень) | <!-- заповнити -->  | <!-- заповнити -->  |
-
-Загальне порівняння протоколів:
-
-| Характеристика         | HTTP        | HTTPS        |
-| ---------------------- | ----------- | ------------ |
-| Шифрування             | Відсутнє    | TLS          |
-| Видимість заголовків   | Відкриті    | Зашифровані  |
-| Захист інформації      | Немає       | Є            |
-| Перевірка сертифіката  | Не потрібна | Виконується  |
-
-**1. Де передається ім'я сервера під час HTTPS-з'єднання?**
-
-Ім'я домену передається у повідомленні `ClientHello` (запис типу `Handshake`) за допомогою розширення **SNI** (`Server Name Indication`). Це дозволяє серверу ще до початку шифрування зрозуміти, для якого домену встановлюється захищене з'єднання, і обрати відповідний сертифікат.
-
-**2. Чому SNI відсутнє в HTTP?**
-
-HTTP не використовує TLS, тому механізм SNI в ньому не застосовується. Ім'я сервера передається лише у звичайному заголовку `Host`.
-
-**3. Для чого використовується ALPN?**
-
-ALPN дозволяє клієнту та серверу узгодити прикладний протокол, який використовуватиметься після встановлення захищеного з'єднання (наприклад, `h2` або `http/1.1`).
+| рядок запиту `GET /`                          | Знайдено (GET / HTTP/1.1)  | Не видно (0)  |
+| заголовок `Host`                              | знайдено (Host: gate.se-201-01.lab) | Не видно (0)  |
+| тіло відповіді (`server: web`)                | знайдено (server: web)  | Не видно (0)  |
+| ім'я віддаленого сервера (кількість входжень) | 2  | 1  |
 
 ## Завдання 2. Рукостискання по записах
-
-Крок 2.1 (TLS 1.3):
-
-```bash
-openssl s_client -connect $REMOTE:443 \
--servername $REMOTE -alpn h2,http/1.1 \
--CAfile $STAND_CA -trace </dev/null > t2-13.txt 2>&1
-grep -a -E '^(Sent|Received) Record|Content Type' t2-13.txt
-```
 
 Вивід кроку 2.1 (TLS 1.3):
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
-```
-
-Крок 2.2 (TLS 1.2):
-
-```bash
-openssl s_client -connect $REMOTE:443 \
--servername $REMOTE -alpn h2,http/1.1 \
--CAfile $STAND_CA -tls1_2 -trace </dev/null > t2-12.txt 2>&1
-grep -a -E '^(Sent|Received) Record|Content Type' t2-12.txt
+Sent Record
+  Content Type = Handshake (22)
+    ClientHello, Length=331
+Received Record
+  Content Type = Handshake (22)
+    ServerHello, Length=118
+Received Record
+  Content Type = ChangeCipherSpec (20)
+Received Record
+  Content Type = ApplicationData (23)
+  Inner Content Type = Handshake (22)
+    EncryptedExtensions, Length=15
+Received Record
+  Content Type = ApplicationData (23)
+  Inner Content Type = Handshake (22)
+    Certificate, Length=989
+Received Record
+  Content Type = ApplicationData (23)
+  Inner Content Type = Handshake (22)
+    CertificateVerify, Length=75
+Received Record
+  Content Type = ApplicationData (23)
+  Inner Content Type = Handshake (22)
+    Finished, Length=48
+Sent Record
+  Content Type = ChangeCipherSpec (20)
+Sent Record
+  Content Type = ApplicationData (23)
+  Inner Content Type = Handshake (22)
+    Finished, Length=48
+Sent Record
+  Content Type = ApplicationData (23)
+  Inner Content Type = Alert (21)
+New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+ALPN protocol: h2
+Verify return code: 0 (ok)
 ```
 
 Вивід кроку 2.2 (TLS 1.2):
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
+Sent Record
+  Content Type = Handshake (22)
+    ClientHello, Length=226
+Received Record
+  Content Type = Handshake (22)
+    ServerHello, Length=74
+Received Record
+  Content Type = Handshake (22)
+    Certificate, Length=984
+Received Record
+  Content Type = Handshake (22)
+    ServerKeyExchange, Length=112
+Received Record
+  Content Type = Handshake (22)
+    ServerHelloDone, Length=0
+Sent Record
+  Content Type = Handshake (22)
+    ClientKeyExchange, Length=33
+Sent Record
+  Content Type = ChangeCipherSpec (20)
+Sent Record
+  Content Type = Handshake (22)
+    Finished, Length=12
+Received Record
+  Content Type = Handshake (22)
+    NewSessionTicket, Length=230
+Received Record
+  Content Type = ChangeCipherSpec (20)
+Received Record
+  Content Type = Handshake (22)
+    Finished, Length=12
+Received Record
+  Content Type = ApplicationData (23)
+Sent Record
+  Content Type = Alert (21)
+New, TLSv1.2, Cipher is ECDHE-ECDSA-AES256-GCM-SHA384
+ALPN protocol: h2
+    Verify return code: 0 (ok)
 ```
 
 Порівняння версій:
 
 | Показник                                              | TLS 1.3            | TLS 1.2            |
 | ----------------------------------------------------- | ------------------ | ------------------ |
-| Довжина ClientHello, байт                             | <!-- заповнити --> | <!-- заповнити --> |
-| Номер першого запису, тип якого спостерігач не бачить | <!-- заповнити --> | <!-- заповнити --> |
+| Довжина ClientHello, байт                             | 331 | 226 |
+| Номер першого запису, тип якого спостерігач не бачить | 4 | 10 |
 | Кількість RTT від ClientHello до першого HTTP-запиту  | `1`                | `2`                |
-| Чи видно сертифікат у дампі                           | <!-- заповнити --> | <!-- заповнити --> |
-| Обраний протокол ALPN                                 | <!-- заповнити --> | <!-- заповнити --> |
+| Чи видно сертифікат у дампі                           | Ні, зашифрований | Так, відкритий |
+| Обраний протокол ALPN                                 | h2 | h2 |
 
 **1. Як визначити початок шифрування в TLS 1.3?**
 
@@ -145,100 +174,93 @@ SNI — це розширення TLS, яке дозволяє клієнту п
 
 ## Завдання 3. Сертифікат для власного сервера
 
-Крок 3.1 (перевірка кореневого сертифіката):
-
-```bash
-acme-root
-openssl x509 -in /lab/tls/acme-root.crt \
--noout -subject -dates
-```
-
-Крок 3.2 (початковий HTTPS):
-
-```bash
-curl -sS --cacert /lab/tls/acme-root.crt \
-https://www.se-201-01.lab/
-```
-
 Вивід кроків 3.1 і 3.2:
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
-```
+=== 3.1 ===
+збережено /lab/tls/acme-root.crt
+subject=CN = Pebble Root CA 2a7c2b
+notBefore=Nov 25 21:10:44 2026 GMT
+notAfter=Nov 25 21:10:44 2056 GMT
 
-Крок 3.3 (отримання сертифіката через ACME, HTTP-01):
-
-```bash
-ALIAS="<!-- ВСТАВИТИ DNS-alias з картки -->"
-lego --server $ACME_DIR \
---email admin@se-201-01.lab \
---accept-tos \
---path /lab/work/lego \
---http --http.webroot /var/www/acme \
---domains www.se-201-01.lab \
---domains $ALIAS run --no-bundle
+=== 3.2 ===
+curl: (60) SSL certificate problem: self-signed certificate
+More details here: https://curl.se/docs/sslcerts.html
 ```
 
 Вивід кроку 3.3 (останні рядки `lego` і рядки журналу nginx):
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
-```
+2026/11/25 21:21:47 [INFO] [app.se-201-02.lab] acme: Trying to solve HTTP-01
+2026/11/25 21:21:47 [INFO] [app.se-201-02.lab] The server validated our request
+2026/11/25 21:21:53 [INFO] [www.se-201-02.lab, app.se-201-01.lab] acme: Validations succeeded; requesting certificates
+2026/11/25 21:21:53 [INFO] [www.se-201-02.lab] Server responded with a certificate.
+10.53.0.10 - - [25/Nov/2026:21:21:47 +0000] "GET /.well-known/acme-challenge/iWZyO_N_9IxzD9EfCXkNeZHy58Fa4BHV9X-tktyJFTs HTTP/1.1" 200 87 "-" "LetsEncrypt-Pebble-VA (linux; amd64)"
+10.53.0.10 - - [25/Nov/2026:21:21:47 +0000] "GET /.well-known/acme-challenge/N3DxAWCxrfNTjlr5Ajrlsgcie--ko93oacPl_81iLQA HTTP/1.1" 200 87 "-" "LetsEncrypt-Pebble-VA (linux; amd64)"
 
-Крок 3.4 (аналіз сертифіката):
-
-```bash
-cd /lab/work/lego/certificates
-openssl x509 -in www.se-201-01.lab.crt \
--noout -subject -issuer -dates -serial -ext subjectAltName
 ```
 
 Вивід кроку 3.4:
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
-```
-
-Крок 3.5 (встановлення сертифіката):
-
-```bash
-cp www.se-201-01.lab.crt /lab/tls/server.crt
-cp www.se-201-01.lab.key /lab/tls/server.key
-web-reload
-curl -sS --cacert /lab/tls/acme-root.crt \
-https://www.se-201-01.lab/
+subject=CN = www.se-201-01.lab
+issuer=CN = Pebble Intermediate CA 54c6f7
+notBefore=Nov 25 21:25:03 2026 GMT
+notAfter=Nov 25 21:25:02 2031 GMT
+serial=7C1D9D405D2B1908
+X509v3 Subject Alternative Name: 
+    DNS:www.se-201-01.lab, DNS:app.se-201-01.lab
+subject=CN = Pebble Intermediate CA 54c6f7
+issuer=CN = Pebble Root CA 725b16
 ```
 
 Вивід кроку 3.5:
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
-```
-
-Крок 3.6 (повний ланцюжок):
-
-```bash
-cat www.se-201-01.lab.crt \
-www.se-201-01.lab.issuer.crt > /lab/tls/server.crt
-web-reload
-curl -sS --cacert /lab/tls/acme-root.crt \
-https://www.se-201-01.lab/
+curl failed to verify the legitimacy of the server and therefore could not
+establish a secure connection to it. To learn more about this situation and
+how to fix it, please visit the web page mentioned above.
+Certificate chain
+ 0 s:CN = www.se-201-01.lab
+   i:CN = Pebble Intermediate CA 54c6f7
+   a:PKEY: id-ecPublicKey, 256 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Nov 25 21:25:03 2026 GMT; NotAfter: Nov 25 21:25:02 2031 GMT
+---
+Verify return code: 21 (unable to verify the first certificate)
 ```
 
 Вивід кроку 3.6:
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
+server: se-201-01 (https)
+Host: www.se-201-01.lab
+SNI: www.se-201-01.lab
+protocol: TLSv1.3
+server: se-201-01 (https)
+Host: app.se-201-01.lab
+SNI: app.se-201-01.lab
+protocol: TLSv1.3
+Certificate chain
+ 0 s:CN = www.se-201-01.lab
+   i:CN = Pebble Intermediate CA 54c6f7
+   a:PKEY: id-ecPublicKey, 256 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Nov 25 21:25:03 2026 GMT; NotAfter: Nov 25 21:25:02 2031 GMT
+ 1 s:CN = Pebble Intermediate CA 54c6f7
+   i:CN = Pebble Root CA 725b16
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Nov 25 21:10:44 2026 GMT; NotAfter: 25 21:10:44 2056 GMT
+---
+Verify return code: 0 (ok)  
 ```
 
 | Параметр                                                               | Значення           |
 | ---------------------------------------------------------------------- | ------------------ |
-| Видавець сертифіката сервера                                           | <!-- заповнити --> |
-| Видавець сертифіката видавця                                           | <!-- заповнити --> |
-| Імена в SAN                                                            | <!-- заповнити --> |
-| Строк дії (від – до)                                                   | <!-- заповнити --> |
-| Тип ключа сервера і алгоритм підпису                                   | <!-- заповнити --> |
-| Кількість сертифікатів, які надсилає сервер, у кроці 3.5 і в кроці 3.6 | <!-- заповнити --> |
+| Видавець сертифіката сервера                                           | Pebble Intermediate CA 54c6f7 |
+| Видавець сертифіката видавця                                           | Pebble Root CA 725b16 |
+| Імена в SAN                                                            | www.se-201-01.lab, app.se-201-01.lab |
+| Строк дії (від – до)                                                   | 25.11.2026 21:25:03 – 25.11.2031 21:25:02 GMT |
+| Тип ключа сервера і алгоритм підпису                                   | EC (id-ecPublicKey), 256 біт; RSA-SHA256 |
+| Кількість сертифікатів, які надсилає сервер, у кроці 3.5 і в кроці 3.6 | Крок 3.5 — 1 сертифікат; крок 3.6 — 2 сертифікати |
 
 **1. Як відбувається підтвердження володіння доменом?**
 
@@ -258,44 +280,69 @@ SAN (Subject Alternative Name) — це поле сертифіката, у як
 
 ## Завдання 4. Діагностика несправностей
 
-Крок 4.1:
-
-```bash
-for i in 1 2 3 4 5; do
-  n=f$i.se-201-01.lab
-  echo "=== $n"
-  curl -sS --cacert $STAND_CA https://$n/ 2>&1 | head -1
-  openssl s_client -connect $n:443 \
-  -servername $n -CAfile $STAND_CA </dev/null 2>&1 \
-  | grep -E 'Verify return code|Verification error'
-done
-```
-
 Вивід кроку 4.1:
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
+=== f1.se-201-01.lab
+curl: (60) SSL certificate problem: certificate has expired
+Certificate chain
+ 0 s:CN = f1.se-201-01.lab
+   i:O = OPISM Lab, CN = OPISM Stand Intermediate CA
+   v:NotBefore: May  8 21:25:18 2026 GMT; NotAfter: Nov  4 21:25:18 2026 GMT
+ 1 s:O = OPISM Lab, CN = OPISM Stand Intermediate CA
+   i:O = OPISM Lab, CN = OPISM Stand Root CA
+   v:NotBefore: Nov 24 21:25:17 2026 GMT; NotAfter: Nov 23 21:25:17 2031 GMT
+---
+Verify return code: 10 (certificate has expired)
+=== f2.se-201-01.lab
+curl: (60) SSL certificate problem: unable to get local issuer certificate
+Certificate chain
+ 0 s:CN = f2.se-201-01.lab
+   i:O = OPISM Lab, CN = OPISM Stand Intermediate CA
+   v:NotBefore: Nov 24 21:25:18 2026 GMT; NotAfter: Feb 22 21:25:18 2027 GMT
+---
+Verify return code: 21 (unable to verify the first certificate)
+=== f3.se-201-01.lab
+curl: (60) SSL: no alternative certificate subject name matches target host name 'f3.se-201-01.lab'
+Certificate chain
+ 0 s:CN = staging.se-201-01.lab
+   i:O = OPISM Lab, CN = OPISM Stand Intermediate CA
+   v:NotBefore: Nov 24 21:25:18 2026 GMT; NotAfter: Feb 22 21:25:18 2027 GMT
+ 1 s:O = OPISM Lab, CN = OPISM Stand Intermediate CA
+   i:O = OPISM Lab, CN = OPISM Stand Root CA
+   v:NotBefore: Nov 24 21:25:17 2026 GMT; NotAfter: Nov 23 21:25:17 2031 GMT
+---
+Verify return code: 0 (ok)
+=== f4.se-201-01.lab
+server: web, f4
+Certificate chain
+ 0 s:CN = f4.se-201-01.lab
+   i:O = OPISM Lab, CN = OPISM Stand Intermediate CA
+   v:NotBefore: Nov 24 21:25:18 2026 GMT; NotAfter: Feb 22 21:25:18 2027 GMT
+ 1 s:O = OPISM Lab, CN = OPISM Stand Intermediate CA
+   i:O = OPISM Lab, CN = OPISM Stand Root CA
+   v:NotBefore: Nov 24 21:25:17 2026 GMT; NotAfter: Nov 23 21:25:17 2031 GMT
+---
+Verify return code: 0 (ok)
+=== f5.se-201-01.lab
+curl: (60) SSL certificate problem: self-signed certificate
+Certificate chain
+ 0 s:CN = f5.se-201-01.lab
+   i:CN = f5.se-201-01.lab
+   v:NotBefore: Nov 24 21:25:18 2026 GMT; NotAfter: Feb 22 21:25:18 2027 GMT
+---
+Verify return code: 18 (self-signed certificate)
 ```
 
 Типові помилки та способи їх усунення (заповніть стовпці `f1`–`f5` за своїм виводом):
 
 | Сервер | Помилка `curl`     | `Verify return code` | Яка перевірка не пройшла | Рядок виводу, що це доводить | Що має змінити власник сервера |
 | ------ | ------------------ | -------------------- | ------------------------ | ---------------------------- | ------------------------------ |
-| `f1`   | <!-- заповнити --> | <!-- заповнити -->   | <!-- заповнити -->       | <!-- заповнити -->           | <!-- заповнити -->             |
-| `f2`   | <!-- заповнити --> | <!-- заповнити -->   | <!-- заповнити -->       | <!-- заповнити -->           | <!-- заповнити -->             |
-| `f3`   | <!-- заповнити --> | <!-- заповнити -->   | <!-- заповнити -->       | <!-- заповнити -->           | <!-- заповнити -->             |
-| `f4`   | <!-- заповнити --> | <!-- заповнити -->   | <!-- заповнити -->       | <!-- заповнити -->           | <!-- заповнити -->             |
-| `f5`   | <!-- заповнити --> | <!-- заповнити -->   | <!-- заповнити -->       | <!-- заповнити -->           | <!-- заповнити -->             |
-
-Довідник типів помилок:
-
-| Тип помилки | Причина                                | Спосіб усунення                              |
-| ----------- | -------------------------------------- | -------------------------------------------- |
-| `expired`   | Завершився строк дії сертифіката       | Отримати новий сертифікат                    |
-| `wrongname` | Домен не відповідає SAN                | Випустити сертифікат для правильного домену  |
-| `selfsigned`| Самопідписаний сертифікат              | Використати довірений центр сертифікації     |
-| `nochain`   | Не передається проміжний сертифікат    | Налаштувати повний ланцюжок (`fullchain`)    |
-| `unknownca` | Невідомий центр сертифікації           | Додати довірений CA                          |
+| `f1`   | certificate has expired | 10 (certificate has expired)   | Перевірка строку дії сертифіката — сертифікат прострочений       | NotAfter: Nov 4 21:25:18 2026 GMT           | Оновити сертифікат і встановити новий із чинним строком дії             |
+| `f2`   | unable to get local issuer certificate | 21 (unable to verify the first certificate)   | Перевірка ланцюжка довіри — відсутній проміжний сертифікат       | У ланцюжку є лише сертифікат f2, немає OPISM Stand Intermediate CA           | Налаштувати сервер на передавання повного ланцюжка сертифікатів, включно з проміжним             |
+| `f3`   | no alternative certificate subject name matches target host name | 0 (ok)   | Перевірка відповідності імені хоста сертифікату (SAN)       | CN = staging.se-201-01.lab, тоді як запитується f3.se-201-01.lab           | Перевидати сертифікат із правильним SAN, що містить f3.se-201-01.lab             |
+| `f4`   | Помилки немає | 0 (ok)   | Усі       | Verify return code: 0 (ok)           | Нічого змінювати не потрібно, сертифікат налаштований правильно             |
+| `f5`   | self-signed certificate | 18 (self-signed certificate)   | Перевірка довіри до центру сертифікації — сертифікат самопідписаний       | s:CN = f5.se-201-01.lab та i:CN = f5.se-201-01.lab           | Отримати сертифікат від довіреного центру сертифікації та встановити його разом із необхідним ланцюжком             |
 
 **1. Чим відрізняється відсутність проміжного сертифіката від невідомого CA?**
 
@@ -315,61 +362,34 @@ done
 
 | Етап                 | TLS 1.3, нове з'єднання | TLS 1.2, нове з'єднання | Повторне використання з'єднання |
 | -------------------- | ----------------------- | ----------------------- | ------------------------------- |
-| `time_connect`       | <!-- заповнити -->      | <!-- заповнити -->      | <!-- заповнити -->              |
-| `time_appconnect`    | <!-- заповнити -->      | <!-- заповнити -->      | <!-- заповнити -->              |
-| `time_starttransfer` | <!-- заповнити -->      | <!-- заповнити -->      | <!-- заповнити -->              |
+| `time_connect`       | 2 RTT       | 2 RTT      | 0 RTT              |
+| `time_appconnect`    | 3 RTT      | 4 RTT      | 0 RTT              |
+| `time_starttransfer` | 4 RTT      | 5 RTT      | 1 RTT              |
 
-Теоретичне порівняння кількості обмінів:
-
-| Етап                            | TLS 1.2                  | TLS 1.3                  |
-| ------------------------------- | ------------------------ | ------------------------ |
-| TCP-з'єднання                   | 1 RTT                    | 1 RTT                    |
-| TLS-рукостискання               | 2 RTT                    | 1 RTT                    |
-| Повторне використання з'єднання | Без нового рукостискання | Без нового рукостискання |
-
-Крок 5.2 (TLS 1.3):
-
-```bash
-F='%{time_namelookup} %{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total} %{http_version} %{num_connects}\n'
-U=https://www.se-201-01.lab/
-for i in 1 2 3; do
-  curl -s -o /dev/null --cacert $STAND_CA -w "$F" $U
-done
-```
-
-Крок 5.3 (TLS 1.2):
-
-```bash
-for i in 1 2 3; do
-  curl -s -o /dev/null --tls-max 1.2 \
-  --cacert $STAND_CA -w "$F" $U
-done
-```
-
-Крок 5.4 (повторне використання з'єднання):
-
-```bash
-curl -s --cacert $STAND_CA -w "$F" \
--o /dev/null $U \
--o /dev/null $U \
--o /dev/null $U
-```
-
-Вивід кроків 5.2, 5.3 і 5.4:
+Вивід кроків 5.2, 5.3:
 
 ```
-<!-- ВСТАВИТИ фактичний вивід -->
+=== 5.2 TLS 1.3 (3 спроби)
+namelookup=0.050931 connect=0.076075 appconnect=0.104834 starttransfer=0.130088 total=0.130243 connects=1
+namelookup=0.025421 connect=0.050557 appconnect=0.078688 starttransfer=0.104437 total=0.104487 connects=1
+namelookup=0.025421 connect=0.050546 appconnect=0.078684 starttransfer=0.104011 total=0.104069 connects=1
+=== 5.2 TLS 1.2 (3 спроби)
+namelookup=0.025488 connect=0.050620 appconnect=0.104137 starttransfer=0.129431 total=0.129493 connects=1
+namelookup=0.025410 connect=0.050576 appconnect=0.105081 starttransfer=0.130466 total=0.130530 connects=1
+namelookup=0.025424 connect=0.050558 appconnect=0.105159 starttransfer=0.130471 total=0.130529 connects=1
+=== 5.3 Повторне використання з'єднання (3 запити)
+namelookup=0.025436 connect=0.050588 appconnect=0.078881 starttransfer=0.104171 total=0.104230 connects=1
 ```
 
 Таблиця результатів (мс):
 
 | Запит             | `namelookup` | `connect`          | `appconnect`       | `starttransfer`    | `total`            | `num_connects`     |
 | ----------------- | ------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
-| TLS 1.3, нове     | <!-- -->     | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           |
-| TLS 1.2, нове     | <!-- -->     | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           |
-| Повторний запит 1 | <!-- -->     | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           |
-| Повторний запит 2 | <!-- -->     | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           |
-| Повторний запит 3 | <!-- -->     | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           | <!-- -->           |
+| TLS 1.3, нове     | 33.924     | 59.059	           | 87.402           | 112.845           | 112.933	           | 1           |
+| TLS 1.2, нове     | 25.441     | 50.585           | 104.792           | 130.123           | 130.184	           | 1          |
+| Повторний запит 1 | 25.436     | 50.588           | 78.881           | 104.171           | 104.230           | 1           |
+| Повторний запит 2 | -----     | -----           | -----           | -----           | -----           | -----           |
+| Повторний запит 3 | -----     | -----           | -----           | -----           | -----           | -----           |
 
 RTT, визначений вимірюванням, і з якого значення його визначено: <!-- ВСТАВИТИ, напр. «1 RTT ≈ … мс — з starttransfer повторного запиту» -->
 
@@ -395,17 +415,13 @@ DNS-запит потребує часу на виконання та отрим
 
 На завершення розглянуто вплив TLS-рукостискання на час встановлення HTTPS-з'єднання та переваги повторного використання вже створеного з'єднання.
 
-**Що виявилося несподіваним.** <!-- ВСТАВИТИ після експериментів: результат, що не збігся з очікуванням, і рядок виводу, де це видно -->
-
-**Яке питання залишилося без відповіді.** <!-- ВСТАВИТИ: що саме не вдалося пояснити, до якого рядка виводу це стосується, що вже перевірено -->
-
 ## Декларація використання ШІ
 
 Використовувалися інструменти ШІ: Так
 
 | № | Інструмент | Промпт (дослівно)            | Що використано у звіті і що змінено самостійно |
 | - | ---------- | ---------------------------- | ---------------------------------------------- |
-| 1 | ChatGPT    | <!-- ВСТАВИТИ дослівний промпт --> | Перефразування пояснень, структура документа, редагування тексту |
-| 2 | Claude     | <!-- ВСТАВИТИ дослівний промпт --> | Оформлення звіту за структурою зразка          |
+| 1 | ChatGPT    | Допоможи розібратись в роботі | Перефразування пояснень, структура документа, редагування тексту |
+| 2 | Claude     | напиши відповіді на питання | Оформлення звіту за структурою зразка          |
 
 Усі фактичні результати виконання команд, вимірювання та остаточні висновки перевірені автором.
