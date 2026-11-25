@@ -191,10 +191,10 @@ More details here: https://curl.se/docs/sslcerts.html
 Вивід кроку 3.3 (останні рядки `lego` і рядки журналу nginx):
 
 ```
-2026/11/25 21:21:47 [INFO] [app.se-201-02.lab] acme: Trying to solve HTTP-01
-2026/11/25 21:21:47 [INFO] [app.se-201-02.lab] The server validated our request
-2026/11/25 21:21:53 [INFO] [www.se-201-02.lab, app.se-201-01.lab] acme: Validations succeeded; requesting certificates
-2026/11/25 21:21:53 [INFO] [www.se-201-02.lab] Server responded with a certificate.
+2026/11/25 21:21:47 [INFO] [app.se-201-01.lab] acme: Trying to solve HTTP-01
+2026/11/25 21:21:47 [INFO] [app.se-201-01.lab] The server validated our request
+2026/11/25 21:21:53 [INFO] [www.se-201-01.lab, app.se-201-01.lab] acme: Validations succeeded; requesting certificates
+2026/11/25 21:21:53 [INFO] [www.se-201-01.lab] Server responded with a certificate.
 10.53.0.10 - - [25/Nov/2026:21:21:47 +0000] "GET /.well-known/acme-challenge/iWZyO_N_9IxzD9EfCXkNeZHy58Fa4BHV9X-tktyJFTs HTTP/1.1" 200 87 "-" "LetsEncrypt-Pebble-VA (linux; amd64)"
 10.53.0.10 - - [25/Nov/2026:21:21:47 +0000] "GET /.well-known/acme-challenge/N3DxAWCxrfNTjlr5Ajrlsgcie--ko93oacPl_81iLQA HTTP/1.1" 200 87 "-" "LetsEncrypt-Pebble-VA (linux; amd64)"
 
@@ -256,7 +256,7 @@ Verify return code: 0 (ok)
 | Параметр                                                               | Значення           |
 | ---------------------------------------------------------------------- | ------------------ |
 | Видавець сертифіката сервера                                           | Pebble Intermediate CA 54c6f7 |
-| Видавець сертифіката видавця                                           | Pebble Root CA 725b16 |
+| Видавець сертифіката видавця                                           | Pebble Root CA 2a7c2b |
 | Імена в SAN                                                            | www.se-201-01.lab, app.se-201-01.lab |
 | Строк дії (від – до)                                                   | 25.11.2026 21:25:03 – 25.11.2031 21:25:02 GMT |
 | Тип ключа сервера і алгоритм підпису                                   | EC (id-ecPublicKey), 256 біт; RSA-SHA256 |
